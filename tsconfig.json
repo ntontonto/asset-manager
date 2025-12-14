@@ -1,0 +1,39 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "allowImportingTsExtensions": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "composite": false,
+    
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    
+    "skipLibCheck": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    
+    "baseUrl": "./",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@/ingestion/*": ["./src/ingestion/*"],
+      "@/storage/*": ["./src/storage/*"],
+      "@/analytics/*": ["./src/analytics/*"],
+      "@/portfolio/*": ["./src/portfolio/*"],
+      "@/presentation/*": ["./src/presentation/*"],
+      "@/execution/*": ["./src/execution/*"],
+      "@/security/*": ["./src/security/*"]
+    }
+  },
+  "include": ["src/**/*", "*.config.js"],
+  "exclude": ["node_modules", "dist"]
+}
