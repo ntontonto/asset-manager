@@ -31,6 +31,7 @@ out/
 # AI Tools
 .claude/
 .kiro/
+.codex/
 
 # OS
 .DS_Store
