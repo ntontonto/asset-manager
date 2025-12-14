@@ -1,0 +1,258 @@
+import { randomUUID } from 'node:crypto';
+
+import { BaseRepository } from './base';
+
+import type {
+  Account,
+  AccountProvider,
+  AccountType,
+  CreateAccountRequest,
+  UpdateAccountRequest,
+} from '@/shared/types';
+
+export interface AccountFilters {
+  provider?: AccountProvider;
+  type?: AccountType;
+  isActive?: boolean;
+  currency?: string;
+}
+
+export class AccountRepository extends BaseRepository {
+  /**
+   * Create a new account
+   */
+  public create(request: CreateAccountRequest): Account {
+    this.ensureDatabase();
+
+    const account: Account = {
+      id: randomUUID(),
+      name: request.name,
+      provider: request.provider,
+      type: request.type,
+      currency: request.currency,
+      isActive: request.isActive ?? true,
+      apiCredentials: request.apiCredentials,
+      metadata: request.metadata,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const stmt = this.db.prepare(`
+      INSERT INTO accounts (
+        id, name, provider, type, currency, is_active, 
+        api_credentials, metadata, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    stmt.run(
+      account.id,
+      account.name,
+      account.provider,
+      account.type,
+      account.currency,
+      account.isActive ? 1 : 0,
+      JSON.stringify(account.apiCredentials || {}),
+      JSON.stringify(account.metadata || {}),
+      account.createdAt.toISOString(),
+      account.updatedAt.toISOString(),
+    );
+
+    return account;
+  }
+
+  /**
+   * Get account by ID
+   */
+  public getById(id: string): Account | null {
+    this.ensureDatabase();
+
+    const stmt = this.db.prepare(`
+      SELECT * FROM accounts WHERE id = ?
+    `);
+
+    const row = stmt.get(id) as any;
+    return row ? this.mapRowToAccount(row) : null;
+  }
+
+  /**
+   * List all accounts with optional filters
+   */
+  public list(filters?: AccountFilters, limit?: number, offset?: number): Account[] {
+    this.ensureDatabase();
+
+    let query = 'SELECT * FROM accounts WHERE 1=1';
+    const params: any[] = [];
+
+    if (filters?.provider) {
+      query += ' AND provider = ?';
+      params.push(filters.provider);
+    }
+
+    if (filters?.type) {
+      query += ' AND type = ?';
+      params.push(filters.type);
+    }
+
+    if (filters?.isActive !== undefined) {
+      query += ' AND is_active = ?';
+      params.push(filters.isActive ? 1 : 0);
+    }
+
+    if (filters?.currency) {
+      query += ' AND currency = ?';
+      params.push(filters.currency);
+    }
+
+    query += ' ORDER BY name ASC';
+
+    if (limit) {
+      query += ' LIMIT ?';
+      params.push(limit);
+    }
+
+    if (offset) {
+      query += ' OFFSET ?';
+      params.push(offset);
+    }
+
+    const stmt = this.db.prepare(query);
+    const rows = stmt.all(...params) as any[];
+
+    return rows.map((row) => this.mapRowToAccount(row));
+  }
+
+  /**
+   * Get active accounts only
+   */
+  public getActive(): Account[] {
+    return this.list({ isActive: true });
+  }
+
+  /**
+   * Update an existing account
+   */
+  public update(id: string, request: UpdateAccountRequest): Account | null {
+    this.ensureDatabase();
+
+    const existing = this.getById(id);
+    if (!existing) {
+      return null;
+    }
+
+    const updated: Account = {
+      ...existing,
+      ...request,
+      id, // Keep original ID
+      updatedAt: new Date(),
+    };
+
+    const stmt = this.db.prepare(`
+      UPDATE accounts SET
+        name = ?,
+        provider = ?,
+        type = ?,
+        currency = ?,
+        is_active = ?,
+        api_credentials = ?,
+        metadata = ?,
+        updated_at = ?
+      WHERE id = ?
+    `);
+
+    stmt.run(
+      updated.name,
+      updated.provider,
+      updated.type,
+      updated.currency,
+      updated.isActive ? 1 : 0,
+      JSON.stringify(updated.apiCredentials || {}),
+      JSON.stringify(updated.metadata || {}),
+      updated.updatedAt.toISOString(),
+      id,
+    );
+
+    return updated;
+  }
+
+  /**
+   * Activate/deactivate an account
+   */
+  public setActive(id: string, isActive: boolean): boolean {
+    this.ensureDatabase();
+
+    const stmt = this.db.prepare(`
+      UPDATE accounts SET 
+        is_active = ?,
+        updated_at = ?
+      WHERE id = ?
+    `);
+
+    const result = stmt.run(isActive ? 1 : 0, new Date().toISOString(), id);
+    return result.changes > 0;
+  }
+
+  /**
+   * Delete an account
+   */
+  public delete(id: string): boolean {
+    this.ensureDatabase();
+
+    const stmt = this.db.prepare('DELETE FROM accounts WHERE id = ?');
+    const result = stmt.run(id);
+
+    return result.changes > 0;
+  }
+
+  /**
+   * Count total accounts with optional filters
+   */
+  public count(filters?: AccountFilters): number {
+    this.ensureDatabase();
+
+    let query = 'SELECT COUNT(*) as count FROM accounts WHERE 1=1';
+    const params: any[] = [];
+
+    if (filters?.provider) {
+      query += ' AND provider = ?';
+      params.push(filters.provider);
+    }
+
+    if (filters?.type) {
+      query += ' AND type = ?';
+      params.push(filters.type);
+    }
+
+    if (filters?.isActive !== undefined) {
+      query += ' AND is_active = ?';
+      params.push(filters.isActive ? 1 : 0);
+    }
+
+    if (filters?.currency) {
+      query += ' AND currency = ?';
+      params.push(filters.currency);
+    }
+
+    const stmt = this.db.prepare(query);
+    const result = stmt.get(...params) as { count: number };
+
+    return result.count;
+  }
+
+  /**
+   * Map database row to Account object
+   */
+  private mapRowToAccount(row: any): Account {
+    return {
+      id: row.id,
+      name: row.name,
+      provider: row.provider as AccountProvider,
+      type: row.type as AccountType,
+      currency: row.currency,
+      isActive: !!row.is_active,
+      apiCredentials: row.api_credentials ? JSON.parse(row.api_credentials) : undefined,
+      metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
+      createdAt: new Date(row.created_at),
+      updatedAt: new Date(row.updated_at),
+    };
+  }
+}

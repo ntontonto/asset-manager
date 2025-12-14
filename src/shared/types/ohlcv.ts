@@ -42,3 +42,17 @@ export type CreateOHLCVData = z.infer<typeof CreateOHLCVDataSchema>;
 // Bulk insert schema for performance
 export const BulkCreateOHLCVDataSchema = z.array(CreateOHLCVDataSchema);
 export type BulkCreateOHLCVData = z.infer<typeof BulkCreateOHLCVDataSchema>;
+
+// Request types for API
+export type OHLCVTimeframe = Timeframe;
+export type CreateOHLCVRequest = CreateOHLCVData;
+
+export const UpdateOHLCVSchema = OHLCVDataSchema.partial().omit({
+  id: true,
+  assetId: true,
+  timeframe: true,
+  timestamp: true,
+  createdAt: true,
+});
+
+export type UpdateOHLCVRequest = z.infer<typeof UpdateOHLCVSchema>;

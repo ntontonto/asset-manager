@@ -52,3 +52,13 @@ export const CreateAccountSchema = AccountSchema.omit({
 });
 
 export type CreateAccount = z.infer<typeof CreateAccountSchema>;
+
+// Request types for API
+export type CreateAccountRequest = CreateAccount;
+
+export const UpdateAccountSchema = AccountSchema.partial().omit({
+  id: true,
+  createdAt: true,
+});
+
+export type UpdateAccountRequest = z.infer<typeof UpdateAccountSchema>;

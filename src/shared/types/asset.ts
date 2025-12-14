@@ -34,3 +34,13 @@ export const CreateAssetSchema = AssetSchema.omit({
 });
 
 export type CreateAsset = z.infer<typeof CreateAssetSchema>;
+
+// Request types for API
+export type CreateAssetRequest = CreateAsset;
+
+export const UpdateAssetSchema = AssetSchema.partial().omit({
+  id: true,
+  createdAt: true,
+});
+
+export type UpdateAssetRequest = z.infer<typeof UpdateAssetSchema>;

@@ -29,3 +29,14 @@ export const UpdatePositionSchema = PositionSchema.partial().extend({
 });
 
 export type UpdatePosition = z.infer<typeof UpdatePositionSchema>;
+
+// Request types for API
+export const UpdatePositionRequestSchema = PositionSchema.partial().omit({
+  id: true,
+  accountId: true,
+  assetId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type UpdatePositionRequest = z.infer<typeof UpdatePositionRequestSchema>;

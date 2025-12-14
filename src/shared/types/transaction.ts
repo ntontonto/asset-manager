@@ -55,3 +55,13 @@ export const CreateTransactionSchema = TransactionSchema.omit({
 });
 
 export type CreateTransaction = z.infer<typeof CreateTransactionSchema>;
+
+// Request types for API
+export type CreateTransactionRequest = CreateTransaction;
+
+export const UpdateTransactionSchema = TransactionSchema.partial().omit({
+  id: true,
+  createdAt: true,
+});
+
+export type UpdateTransactionRequest = z.infer<typeof UpdateTransactionSchema>;
