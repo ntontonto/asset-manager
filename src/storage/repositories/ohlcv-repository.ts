@@ -9,6 +9,20 @@ import type {
   UpdateOHLCVRequest,
 } from '@/shared/types';
 
+interface OHLCVRow {
+  id: string;
+  asset_id: string;
+  timeframe: OHLCVTimeframe;
+  timestamp: string;
+  open: string;
+  high: string;
+  low: string;
+  close: string;
+  volume: string;
+  source: string | null;
+  created_at: string;
+}
+
 export interface OHLCVFilters {
   assetId?: string;
   assetIds?: string[];
@@ -152,7 +166,7 @@ export class OHLCVRepository extends BaseRepository {
       WHERE asset_id = ? AND timeframe = ? AND timestamp = ?
     `);
 
-    const row = stmt.get(assetId, timeframe, timestamp.toISOString()) as any;
+    const row = stmt.get(assetId, timeframe, timestamp.toISOString()) as OHLCVRow | undefined;
     return row ? this.mapRowToOHLCV(row) : null;
   }
 
@@ -163,7 +177,7 @@ export class OHLCVRepository extends BaseRepository {
     this.ensureDatabase();
 
     let query = 'SELECT * FROM ohlcv_data WHERE 1=1';
-    const params: any[] = [];
+    const params: unknown[] = [];
 
     if (filters?.assetId) {
       query += ' AND asset_id = ?';
@@ -219,7 +233,7 @@ export class OHLCVRepository extends BaseRepository {
     }
 
     const stmt = this.db.prepare(query);
-    const rows = stmt.all(...params) as any[];
+    const rows = stmt.all(...params) as OHLCVRow[];
 
     return rows.map((row) => this.mapRowToOHLCV(row));
   }
@@ -270,7 +284,11 @@ export class OHLCVRepository extends BaseRepository {
       WHERE asset_id = ? AND timeframe = ?
     `);
 
-    const result = stmt.get(assetId, timeframe) as any;
+    const result = stmt.get(assetId, timeframe) as {
+      earliest: string | null;
+      latest: string | null;
+      count: number;
+    };
 
     return {
       earliest: result.earliest ? new Date(result.earliest) : null,
@@ -312,7 +330,7 @@ export class OHLCVRepository extends BaseRepository {
       ORDER BY timestamp ASC
     `);
 
-    const rows = stmt.all(assetId, timeframe) as any[];
+    const rows = stmt.all(assetId, timeframe) as Array<{ timestamp: string }>;
     const gaps: Array<{ from: Date; to: Date }> = [];
 
     if (rows.length < 2) {
@@ -548,9 +566,7 @@ export class OHLCVRepository extends BaseRepository {
         const close = bucketData[bucketData.length - 1]!.close;
         const high = Math.max(...bucketData.map((d) => parseFloat(d.high))).toString();
         const low = Math.min(...bucketData.map((d) => parseFloat(d.low))).toString();
-        const volume = bucketData
-          .reduce((sum, d) => sum + parseFloat(d.volume), 0)
-          .toString();
+        const volume = bucketData.reduce((sum, d) => sum + parseFloat(d.volume), 0).toString();
 
         const result = insertStmt.run(
           randomUUID(),
@@ -603,7 +619,7 @@ export class OHLCVRepository extends BaseRepository {
     this.ensureDatabase();
 
     const stmt = this.db.prepare('SELECT * FROM ohlcv_data WHERE id = ?');
-    const row = stmt.get(id) as any;
+    const row = stmt.get(id) as OHLCVRow | undefined;
 
     return row ? this.mapRowToOHLCV(row) : null;
   }
@@ -615,7 +631,7 @@ export class OHLCVRepository extends BaseRepository {
     this.ensureDatabase();
 
     let query = 'SELECT COUNT(*) as count FROM ohlcv_data WHERE 1=1';
-    const params: any[] = [];
+    const params: unknown[] = [];
 
     if (filters?.assetId) {
       query += ' AND asset_id = ?';
@@ -670,7 +686,7 @@ export class OHLCVRepository extends BaseRepository {
       FROM ohlcv_data 
       WHERE asset_id = ? AND timeframe = ?
     `;
-    const params: any[] = [assetId, timeframe];
+    const params: unknown[] = [assetId, timeframe];
 
     if (from) {
       query += ' AND timestamp >= ?';
@@ -683,22 +699,40 @@ export class OHLCVRepository extends BaseRepository {
     }
 
     const stmt = this.db.prepare(query);
-    const result = stmt.get(...params) as any;
+    const result = stmt.get(...params) as {
+      count: number;
+      avg_volume: number;
+      max_high: number;
+      min_low: number;
+    };
 
-    // Get first and last prices separately
+    // Get first and last prices within the same filter range
+    let boundaryWhere = 'asset_id = ? AND timeframe = ?';
+    const boundaryParams: unknown[] = [assetId, timeframe];
+
+    if (from) {
+      boundaryWhere += ' AND timestamp >= ?';
+      boundaryParams.push(from.toISOString());
+    }
+
+    if (to) {
+      boundaryWhere += ' AND timestamp <= ?';
+      boundaryParams.push(to.toISOString());
+    }
+
     const firstStmt = this.db.prepare(`
       SELECT open FROM ohlcv_data 
-      WHERE asset_id = ? AND timeframe = ? 
+      WHERE ${boundaryWhere}
       ORDER BY timestamp ASC LIMIT 1
     `);
-    const firstResult = firstStmt.get(assetId, timeframe) as any;
+    const firstResult = firstStmt.get(...boundaryParams) as { open: string } | undefined;
 
     const lastStmt = this.db.prepare(`
       SELECT close FROM ohlcv_data 
-      WHERE asset_id = ? AND timeframe = ? 
+      WHERE ${boundaryWhere}
       ORDER BY timestamp DESC LIMIT 1
     `);
-    const lastResult = lastStmt.get(assetId, timeframe) as any;
+    const lastResult = lastStmt.get(...boundaryParams) as { close: string } | undefined;
 
     return {
       count: result.count || 0,
@@ -713,7 +747,7 @@ export class OHLCVRepository extends BaseRepository {
   /**
    * Map database row to OHLCVData object
    */
-  private mapRowToOHLCV(row: any): OHLCVData {
+  private mapRowToOHLCV(row: OHLCVRow): OHLCVData {
     return {
       id: row.id,
       assetId: row.asset_id,

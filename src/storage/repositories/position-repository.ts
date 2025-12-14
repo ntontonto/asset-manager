@@ -4,6 +4,28 @@ import { BaseRepository } from './base';
 
 import type { Position, UpdatePositionRequest } from '@/shared/types';
 
+interface PositionRow {
+  id: string;
+  account_id: string;
+  asset_id: string;
+  quantity: string;
+  average_price: string | null;
+  last_price: string | null;
+  last_updated: string;
+  metadata: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface PositionWithDetailsRow extends PositionRow {
+  asset_symbol: string;
+  asset_name: string;
+  asset_type: string;
+  asset_currency: string;
+  account_name: string;
+  account_provider: string;
+}
+
 export interface PositionFilters {
   accountId?: string;
   assetId?: string;
@@ -79,7 +101,7 @@ export class PositionRepository extends BaseRepository {
       SELECT * FROM positions WHERE id = ?
     `);
 
-    const row = stmt.get(id) as any;
+    const row = stmt.get(id) as PositionRow | undefined;
     return row ? this.mapRowToPosition(row) : undefined;
   }
 
@@ -93,7 +115,7 @@ export class PositionRepository extends BaseRepository {
       SELECT * FROM positions WHERE account_id = ? AND asset_id = ?
     `);
 
-    const row = stmt.get(accountId, assetId) as any;
+    const row = stmt.get(accountId, assetId) as PositionRow | undefined;
     return row ? this.mapRowToPosition(row) : undefined;
   }
 
@@ -118,7 +140,7 @@ export class PositionRepository extends BaseRepository {
     this.ensureDatabase();
 
     let query = 'SELECT * FROM positions WHERE 1=1';
-    const params: any[] = [];
+    const params: unknown[] = [];
 
     if (filters?.accountId) {
       query += ' AND account_id = ?';
@@ -162,7 +184,7 @@ export class PositionRepository extends BaseRepository {
     }
 
     const stmt = this.db.prepare(query);
-    const rows = stmt.all(...params) as any[];
+    const rows = stmt.all(...params) as PositionRow[];
 
     return rows.map((row) => this.mapRowToPosition(row));
   }
@@ -286,7 +308,7 @@ export class PositionRepository extends BaseRepository {
       JOIN accounts acc ON p.account_id = acc.id
       WHERE 1=1
     `;
-    const params: any[] = [];
+    const params: unknown[] = [];
 
     if (filters?.accountId) {
       query += ' AND p.account_id = ?';
@@ -301,7 +323,7 @@ export class PositionRepository extends BaseRepository {
     query += ' ORDER BY p.last_updated DESC';
 
     const stmt = this.db.prepare(query);
-    const rows = stmt.all(...params) as any[];
+    const rows = stmt.all(...params) as PositionWithDetailsRow[];
 
     return rows.map((row) => ({
       ...this.mapRowToPosition(row),
@@ -325,7 +347,7 @@ export class PositionRepository extends BaseRepository {
     this.ensureDatabase();
 
     let query = 'SELECT COUNT(*) as count FROM positions WHERE 1=1';
-    const params: any[] = [];
+    const params: unknown[] = [];
 
     if (filters?.accountId) {
       query += ' AND account_id = ?';
@@ -350,7 +372,7 @@ export class PositionRepository extends BaseRepository {
   /**
    * Map database row to Position object
    */
-  private mapRowToPosition(row: any): Position {
+  private mapRowToPosition(row: PositionRow): Position {
     return {
       id: row.id,
       accountId: row.account_id,

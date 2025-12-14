@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it } from '@jest/globals';
-import { TransactionRepository } from '../repositories/transaction-repository';
-import { AssetRepository } from '../repositories/asset-repository';
-import { AccountRepository } from '../repositories/account-repository';
+
 import { DatabaseConnection } from '../database/connection';
+import { AccountRepository } from '../repositories/account-repository';
+import { AssetRepository } from '../repositories/asset-repository';
+import { TransactionRepository } from '../repositories/transaction-repository';
+
 import type { CreateTransactionRequest, Asset, Account } from '@/shared/types';
 
 describe('TransactionRepository', () => {
@@ -176,7 +178,7 @@ describe('TransactionRepository', () => {
         },
       ];
 
-      transactions.forEach(tx => repository.create(tx));
+      transactions.forEach((tx) => repository.create(tx));
     });
 
     it('should list all transactions without filters', () => {
@@ -187,28 +189,28 @@ describe('TransactionRepository', () => {
     it('should filter by account', () => {
       const accountTxs = repository.list({ accountId: testAccount.id });
       expect(accountTxs).toHaveLength(3);
-      expect(accountTxs.every(tx => tx.accountId === testAccount.id)).toBe(true);
+      expect(accountTxs.every((tx) => tx.accountId === testAccount.id)).toBe(true);
     });
 
     it('should filter by asset', () => {
       const assetTxs = repository.list({ assetId: testAsset.id });
       expect(assetTxs).toHaveLength(3);
-      expect(assetTxs.every(tx => tx.assetId === testAsset.id)).toBe(true);
+      expect(assetTxs.every((tx) => tx.assetId === testAsset.id)).toBe(true);
     });
 
     it('should filter by transaction type', () => {
       const buyTxs = repository.list({ type: 'buy' });
       expect(buyTxs).toHaveLength(2);
-      expect(buyTxs.every(tx => tx.type === 'buy')).toBe(true);
+      expect(buyTxs.every((tx) => tx.type === 'buy')).toBe(true);
 
       const sellTxs = repository.list({ type: 'sell' });
       expect(sellTxs).toHaveLength(1);
     });
 
     it('should filter by date range', () => {
-      const recentTxs = repository.list({ 
+      const recentTxs = repository.list({
         fromDate: new Date('2024-01-02T00:00:00Z'),
-        toDate: new Date('2024-01-03T23:59:59Z')
+        toDate: new Date('2024-01-03T23:59:59Z'),
       });
       expect(recentTxs).toHaveLength(2);
     });
@@ -221,11 +223,12 @@ describe('TransactionRepository', () => {
     it('should sort by timestamp descending by default', () => {
       const transactions = repository.list();
       expect(transactions).toHaveLength(4);
-      
+
       // Check that timestamps are in descending order
       for (let i = 0; i < transactions.length - 1; i++) {
-        expect(transactions[i].timestamp.getTime())
-          .toBeGreaterThanOrEqual(transactions[i + 1].timestamp.getTime());
+        expect(transactions[i].timestamp.getTime()).toBeGreaterThanOrEqual(
+          transactions[i + 1].timestamp.getTime(),
+        );
       }
     });
   });
@@ -251,13 +254,13 @@ describe('TransactionRepository', () => {
         },
       ];
 
-      transactions.forEach(tx => repository.create(tx));
+      transactions.forEach((tx) => repository.create(tx));
     });
 
     it('should get transaction history for account', () => {
       const history = repository.getAccountHistory(testAccount.id);
       expect(history).toHaveLength(2);
-      expect(history.every(tx => tx.accountId === testAccount.id)).toBe(true);
+      expect(history.every((tx) => tx.accountId === testAccount.id)).toBe(true);
     });
 
     it('should respect limit parameter', () => {
@@ -287,13 +290,13 @@ describe('TransactionRepository', () => {
         },
       ];
 
-      transactions.forEach(tx => repository.create(tx));
+      transactions.forEach((tx) => repository.create(tx));
     });
 
     it('should get transaction history for asset', () => {
       const history = repository.getAssetHistory(testAsset.id);
       expect(history).toHaveLength(2);
-      expect(history.every(tx => tx.assetId === testAsset.id)).toBe(true);
+      expect(history.every((tx) => tx.assetId === testAsset.id)).toBe(true);
     });
 
     it('should respect limit parameter', () => {

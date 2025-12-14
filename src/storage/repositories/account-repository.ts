@@ -10,6 +10,19 @@ import type {
   UpdateAccountRequest,
 } from '@/shared/types';
 
+interface AccountRow {
+  id: string;
+  name: string;
+  provider: AccountProvider;
+  type: AccountType;
+  currency: string;
+  is_active: number;
+  api_credentials: string | null;
+  metadata: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface AccountFilters {
   provider?: AccountProvider;
   type?: AccountType;
@@ -73,7 +86,7 @@ export class AccountRepository extends BaseRepository {
       SELECT * FROM accounts WHERE id = ?
     `);
 
-    const row = stmt.get(id) as any;
+    const row = stmt.get(id) as AccountRow | undefined;
     return row ? this.mapRowToAccount(row) : undefined;
   }
 
@@ -84,7 +97,7 @@ export class AccountRepository extends BaseRepository {
     this.ensureDatabase();
 
     let query = 'SELECT * FROM accounts WHERE 1=1';
-    const params: any[] = [];
+    const params: unknown[] = [];
 
     if (filters?.provider) {
       query += ' AND provider = ?';
@@ -119,7 +132,7 @@ export class AccountRepository extends BaseRepository {
     }
 
     const stmt = this.db.prepare(query);
-    const rows = stmt.all(...params) as any[];
+    const rows = stmt.all(...params) as AccountRow[];
 
     return rows.map((row) => this.mapRowToAccount(row));
   }
@@ -219,7 +232,7 @@ export class AccountRepository extends BaseRepository {
     this.ensureDatabase();
 
     let query = 'SELECT COUNT(*) as count FROM accounts WHERE 1=1';
-    const params: any[] = [];
+    const params: unknown[] = [];
 
     if (filters?.provider) {
       query += ' AND provider = ?';
@@ -250,7 +263,7 @@ export class AccountRepository extends BaseRepository {
   /**
    * Map database row to Account object
    */
-  private mapRowToAccount(row: any): Account {
+  private mapRowToAccount(row: AccountRow): Account {
     return {
       id: row.id,
       name: row.name,
@@ -299,7 +312,9 @@ export class AccountRepository extends BaseRepository {
       }
     }
     if (typeof value === 'object' && value !== null) {
-      return Object.keys(value as object).length > 0 ? (value as Record<string, unknown>) : undefined;
+      return Object.keys(value as object).length > 0
+        ? (value as Record<string, unknown>)
+        : undefined;
     }
     return undefined;
   }
@@ -310,8 +325,16 @@ export class AccountRepository extends BaseRepository {
       return undefined;
     }
 
-    if (typeof parsed === 'object' && 'metadata' in parsed && (parsed as any).metadata) {
-      return (parsed as any).metadata as Record<string, unknown>;
+    if (
+      typeof parsed === 'object' &&
+      parsed !== null &&
+      'metadata' in parsed &&
+      (parsed as { metadata?: unknown }).metadata
+    ) {
+      const metadata = (parsed as { metadata?: unknown }).metadata;
+      return typeof metadata === 'object' && metadata !== null
+        ? (metadata as Record<string, unknown>)
+        : undefined;
     }
 
     return parsed;

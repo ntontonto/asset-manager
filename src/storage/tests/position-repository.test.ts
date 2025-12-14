@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it } from '@jest/globals';
-import { PositionRepository } from '../repositories/position-repository';
-import { AssetRepository } from '../repositories/asset-repository';
-import { AccountRepository } from '../repositories/account-repository';
+
 import { DatabaseConnection } from '../database/connection';
-import type { CreatePositionRequest, Asset, Account } from '@/shared/types';
+import { AccountRepository } from '../repositories/account-repository';
+import { AssetRepository } from '../repositories/asset-repository';
+import { PositionRepository } from '../repositories/position-repository';
+
+import type { Asset, Account } from '@/shared/types';
 
 describe('PositionRepository', () => {
   let repository: PositionRepository;
@@ -112,7 +114,10 @@ describe('PositionRepository', () => {
     });
 
     it('should return undefined for non-existent combination', () => {
-      const retrieved = repository.getByAccountAndAsset('non-existent-account', 'non-existent-asset');
+      const retrieved = repository.getByAccountAndAsset(
+        'non-existent-account',
+        'non-existent-asset',
+      );
       expect(retrieved).toBeUndefined();
     });
   });
@@ -159,13 +164,13 @@ describe('PositionRepository', () => {
     it('should filter by account', () => {
       const accountPositions = repository.list({ accountId: testAccount.id });
       expect(accountPositions).toHaveLength(2);
-      expect(accountPositions.every(pos => pos.accountId === testAccount.id)).toBe(true);
+      expect(accountPositions.every((pos) => pos.accountId === testAccount.id)).toBe(true);
     });
 
     it('should filter by asset', () => {
       const assetPositions = repository.list({ assetId: testAsset.id });
       expect(assetPositions).toHaveLength(2);
-      expect(assetPositions.every(pos => pos.assetId === testAsset.id)).toBe(true);
+      expect(assetPositions.every((pos) => pos.assetId === testAsset.id)).toBe(true);
     });
 
     it('should filter by minimum quantity', () => {
@@ -178,7 +183,6 @@ describe('PositionRepository', () => {
       expect(largePositions.length).toBeGreaterThanOrEqual(0);
     });
   });
-
 
   describe('delete', () => {
     it('should delete existing position', () => {

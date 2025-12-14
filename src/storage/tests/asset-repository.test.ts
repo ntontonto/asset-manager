@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it } from '@jest/globals';
-import { AssetRepository } from '../repositories/asset-repository';
+
 import { DatabaseConnection } from '../database/connection';
+import { AssetRepository } from '../repositories/asset-repository';
+
 import type { CreateAssetRequest } from '@/shared/types';
 
 describe('AssetRepository', () => {
@@ -48,7 +50,7 @@ describe('AssetRepository', () => {
       };
 
       repository.create(createRequest);
-      
+
       expect(() => repository.create(createRequest)).toThrow();
     });
   });
@@ -109,7 +111,7 @@ describe('AssetRepository', () => {
         { symbol: 'AAPL', name: 'Apple Inc.', type: 'stock', currency: 'USD', decimals: 2 },
         { symbol: 'USDT', name: 'Tether', type: 'crypto', currency: 'USD', decimals: 6 },
       ];
-      assets.forEach(asset => repository.create(asset));
+      assets.forEach((asset) => repository.create(asset));
     });
 
     it('should list all assets without filters', () => {
@@ -120,7 +122,7 @@ describe('AssetRepository', () => {
     it('should filter by type', () => {
       const cryptoAssets = repository.list({ type: 'crypto' });
       expect(cryptoAssets).toHaveLength(3);
-      expect(cryptoAssets.every(asset => asset.type === 'crypto')).toBe(true);
+      expect(cryptoAssets.every((asset) => asset.type === 'crypto')).toBe(true);
 
       const stockAssets = repository.list({ type: 'stock' });
       expect(stockAssets).toHaveLength(1);
@@ -135,7 +137,7 @@ describe('AssetRepository', () => {
     it('should filter by symbols', () => {
       const specificAssets = repository.list({ symbols: ['BTC', 'AAPL'] });
       expect(specificAssets).toHaveLength(2);
-      expect(specificAssets.map(a => a.symbol).sort()).toEqual(['AAPL', 'BTC']);
+      expect(specificAssets.map((a) => a.symbol).sort()).toEqual(['AAPL', 'BTC']);
     });
   });
 

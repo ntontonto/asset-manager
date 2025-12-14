@@ -4,6 +4,18 @@ import { BaseRepository } from './base';
 
 import type { Asset, AssetType, CreateAssetRequest, UpdateAssetRequest } from '@/shared/types';
 
+interface AssetRow {
+  id: string;
+  symbol: string;
+  name: string;
+  type: AssetType;
+  currency: string;
+  decimals: number;
+  metadata: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface AssetFilters {
   type?: AssetType;
   currency?: string;
@@ -60,7 +72,7 @@ export class AssetRepository extends BaseRepository {
       SELECT * FROM assets WHERE id = ?
     `);
 
-    const row = stmt.get(id) as any;
+    const row = stmt.get(id) as AssetRow | undefined;
     return row ? this.mapRowToAsset(row) : null;
   }
 
@@ -74,7 +86,7 @@ export class AssetRepository extends BaseRepository {
       SELECT * FROM assets WHERE symbol = ?
     `);
 
-    const row = stmt.get(symbol) as any;
+    const row = stmt.get(symbol) as AssetRow | undefined;
     return row ? this.mapRowToAsset(row) : null;
   }
 
@@ -85,7 +97,7 @@ export class AssetRepository extends BaseRepository {
     this.ensureDatabase();
 
     let query = 'SELECT * FROM assets WHERE 1=1';
-    const params: any[] = [];
+    const params: unknown[] = [];
 
     if (filters?.type) {
       query += ' AND type = ?';
@@ -115,7 +127,7 @@ export class AssetRepository extends BaseRepository {
     }
 
     const stmt = this.db.prepare(query);
-    const rows = stmt.all(...params) as any[];
+    const rows = stmt.all(...params) as AssetRow[];
 
     return rows.map((row) => this.mapRowToAsset(row));
   }
@@ -195,7 +207,7 @@ export class AssetRepository extends BaseRepository {
     this.ensureDatabase();
 
     let query = 'SELECT COUNT(*) as count FROM assets WHERE 1=1';
-    const params: any[] = [];
+    const params: unknown[] = [];
 
     if (filters?.type) {
       query += ' AND type = ?';
@@ -221,7 +233,7 @@ export class AssetRepository extends BaseRepository {
   /**
    * Map database row to Asset object
    */
-  private mapRowToAsset(row: any): Asset {
+  private mapRowToAsset(row: AssetRow): Asset {
     return {
       id: row.id,
       symbol: row.symbol,
@@ -229,7 +241,7 @@ export class AssetRepository extends BaseRepository {
       type: row.type as AssetType,
       currency: row.currency,
       decimals: row.decimals,
-      metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
+      metadata: row.metadata ? (JSON.parse(row.metadata) as Record<string, unknown>) : undefined,
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),
     };

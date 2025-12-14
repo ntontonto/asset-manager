@@ -1,4 +1,5 @@
 import * as ccxt from 'ccxt';
+
 import { RateLimiter } from './rate-limiter';
 import {
   ProviderConfig,
@@ -34,7 +35,7 @@ export class CryptoMarketDataFetcher {
   public async addProvider(config: ProviderConfig): Promise<void> {
     try {
       const ExchangeClass = this.getExchangeClass(config.provider);
-      
+
       const exchangeConfig: ccxt.ExchangeConfig = {
         apiKey: config.apiKey,
         secret: config.apiSecret,
@@ -45,23 +46,22 @@ export class CryptoMarketDataFetcher {
       };
 
       const exchange = new ExchangeClass(exchangeConfig);
-      
+
       // Test connection
       await exchange.loadMarkets();
-      
+
       this.exchanges.set(config.provider, exchange);
-      
+
       // Set up rate limiter if configured
       if (config.rateLimit) {
         this.rateLimiters.set(config.provider, new RateLimiter(config.rateLimit));
       }
-      
+
       // Set up retry configuration
       this.retryConfig.set(config.provider, {
         attempts: config.retryAttempts,
         delay: config.retryDelay,
       });
-      
     } catch (error) {
       throw new ExchangeError(
         config.provider,
@@ -83,7 +83,7 @@ export class CryptoMarketDataFetcher {
         // Log error but don't throw
         console.warn(`Warning: Failed to properly close exchange ${provider}:`, error);
       }
-      
+
       this.exchanges.delete(provider);
       this.rateLimiters.delete(provider);
       this.retryConfig.delete(provider);
@@ -116,7 +116,7 @@ export class CryptoMarketDataFetcher {
         // Convert request parameters for CCXT
         const symbol = this.normalizeSymbol(request.symbol, provider);
         const since = request.since ? request.since.getTime() : undefined;
-        
+
         // Fetch OHLCV data
         const ohlcvData = await exchange.fetchOHLCV(
           symbol,
@@ -126,24 +126,25 @@ export class CryptoMarketDataFetcher {
         );
 
         // Convert to our format
-        return ohlcvData.map((candle): OHLCVData => ({
-          timestamp: new Date(candle[0]),
-          open: candle[1].toString(),
-          high: candle[2].toString(),
-          low: candle[3].toString(),
-          close: candle[4].toString(),
-          volume: candle[5].toString(),
-          symbol: request.symbol,
-          provider,
-          timeframe: request.timeframe,
-        }));
-
+        return ohlcvData.map(
+          (candle): OHLCVData => ({
+            timestamp: new Date(candle[0]),
+            open: candle[1].toString(),
+            high: candle[2].toString(),
+            low: candle[3].toString(),
+            close: candle[4].toString(),
+            volume: candle[5].toString(),
+            symbol: request.symbol,
+            provider,
+            timeframe: request.timeframe,
+          }),
+        );
       } catch (error) {
         if (this.isRateLimitError(error)) {
           const retryAfter = this.extractRetryAfter(error);
           throw new RateLimitError(provider, retryAfter);
         }
-        
+
         throw new ExchangeError(
           provider,
           error instanceof Error ? error.message : 'Unknown exchange error',
@@ -208,23 +209,25 @@ export class CryptoMarketDataFetcher {
    */
   public getExchangeInfo(provider: MarketDataProvider): object | undefined {
     const exchange = this.exchanges.get(provider);
-    return exchange ? {
-      name: exchange.name,
-      countries: exchange.countries,
-      rateLimit: exchange.rateLimit,
-      has: exchange.has,
-      timeframes: exchange.timeframes,
-    } : undefined;
+    return exchange
+      ? {
+          name: exchange.name,
+          countries: exchange.countries,
+          rateLimit: exchange.rateLimit,
+          has: exchange.has,
+          timeframes: exchange.timeframes,
+        }
+      : undefined;
   }
 
   /**
    * Clean up all resources
    */
   public async cleanup(): Promise<void> {
-    const cleanupPromises = Array.from(this.exchanges.keys()).map(provider => 
-      this.removeProvider(provider)
+    const cleanupPromises = Array.from(this.exchanges.keys()).map((provider) =>
+      this.removeProvider(provider),
     );
-    
+
     await Promise.allSettled(cleanupPromises);
   }
 
@@ -247,7 +250,7 @@ export class CryptoMarketDataFetcher {
     }
   }
 
-  private normalizeSymbol(symbol: string, provider: MarketDataProvider): string {
+  private normalizeSymbol(symbol: string, _provider: MarketDataProvider): string {
     // Basic symbol normalization - can be extended per exchange
     return symbol.replace('/', '').toUpperCase();
   }
@@ -261,34 +264,36 @@ export class CryptoMarketDataFetcher {
     const delay = retryConfig?.delay || 1000;
 
     let lastError: Error | undefined;
-    
+
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       try {
         return await operation();
       } catch (error) {
         lastError = error instanceof Error ? error : new Error('Unknown error');
-        
+
         // Don't retry on rate limit errors - let caller handle
         if (error instanceof RateLimitError || this.isRateLimitError(error)) {
           throw error;
         }
-        
+
         // Wait before retry (except on last attempt)
         if (attempt < maxAttempts - 1) {
-          await new Promise(resolve => setTimeout(resolve, delay * (attempt + 1)));
+          await new Promise((resolve) => setTimeout(resolve, delay * (attempt + 1)));
         }
       }
     }
-    
+
     throw lastError || new Error('Operation failed after retries');
   }
 
   private isRateLimitError(error: unknown): boolean {
     if (error instanceof Error) {
       const message = error.message.toLowerCase();
-      return message.includes('rate limit') || 
-             message.includes('too many requests') ||
-             message.includes('429');
+      return (
+        message.includes('rate limit') ||
+        message.includes('too many requests') ||
+        message.includes('429')
+      );
     }
     return false;
   }

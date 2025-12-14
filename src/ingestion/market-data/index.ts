@@ -20,10 +20,10 @@ export function createProviderConfig(
     apiSecret?: string;
     apiPassphrase?: string;
     sandbox?: boolean;
-  } = {}
+  } = {},
 ) {
   const defaultRateLimit = DEFAULT_RATE_LIMITS[provider as keyof typeof DEFAULT_RATE_LIMITS];
-  
+
   return {
     provider,
     ...options,

@@ -10,6 +10,35 @@ import type {
   UpdateTransactionRequest,
 } from '@/shared/types';
 
+interface TransactionRow {
+  id: string;
+  account_id: string;
+  asset_id: string;
+  type: TransactionType;
+  status: TransactionStatus;
+  quantity: string;
+  price: string | null;
+  total_value: string | null;
+  fee: string | null;
+  fee_currency: string | null;
+  timestamp: string;
+  external_id: string | null;
+  related_transaction_id: string | null;
+  notes: string | null;
+  metadata: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface TransactionWithDetailsRow extends TransactionRow {
+  asset_symbol: string;
+  asset_name: string;
+  asset_type: string;
+  asset_currency: string;
+  account_name: string;
+  account_provider: string;
+}
+
 export interface TransactionFilters {
   accountId?: string;
   assetId?: string;
@@ -97,7 +126,7 @@ export class TransactionRepository extends BaseRepository {
       SELECT * FROM transactions WHERE id = ?
     `);
 
-    const row = stmt.get(id) as any;
+    const row = stmt.get(id) as TransactionRow | undefined;
     return row ? this.mapRowToTransaction(row) : undefined;
   }
 
@@ -111,7 +140,7 @@ export class TransactionRepository extends BaseRepository {
       SELECT * FROM transactions WHERE external_id = ?
     `);
 
-    const row = stmt.get(externalId) as any;
+    const row = stmt.get(externalId) as TransactionRow | undefined;
     return row ? this.mapRowToTransaction(row) : undefined;
   }
 
@@ -122,7 +151,7 @@ export class TransactionRepository extends BaseRepository {
     this.ensureDatabase();
 
     let query = 'SELECT * FROM transactions WHERE 1=1';
-    const params: any[] = [];
+    const params: unknown[] = [];
     const fromDate = filters.fromDate ?? filters.dateFrom;
     const toDate = filters.toDate ?? filters.dateTo;
     const resolvedLimit = filters.limit ?? limit;
@@ -191,7 +220,7 @@ export class TransactionRepository extends BaseRepository {
     }
 
     const stmt = this.db.prepare(query);
-    const rows = stmt.all(...params) as any[];
+    const rows = stmt.all(...params) as TransactionRow[];
 
     return rows.map((row) => this.mapRowToTransaction(row));
   }
@@ -331,40 +360,40 @@ export class TransactionRepository extends BaseRepository {
           accountId: request.accountId,
           assetId: request.assetId,
           type: request.type,
-        status: request.status || 'completed',
+          status: request.status || 'completed',
           quantity: request.quantity,
           price: request.price,
           totalValue: request.totalValue,
-        fee: request.fee,
-        feeCurrency: request.feeCurrency,
-        timestamp: request.timestamp,
-        externalId: request.externalId,
-        relatedTransactionId: request.relatedTransactionId,
-        notes: request.notes,
-        metadata: request.metadata,
-        createdAt: now,
-        updatedAt: now,
-      };
+          fee: request.fee,
+          feeCurrency: request.feeCurrency,
+          timestamp: request.timestamp,
+          externalId: request.externalId,
+          relatedTransactionId: request.relatedTransactionId,
+          notes: request.notes,
+          metadata: request.metadata,
+          createdAt: now,
+          updatedAt: now,
+        };
 
-      stmt.run(
-        transaction.id,
-        transaction.accountId,
+        stmt.run(
+          transaction.id,
+          transaction.accountId,
           transaction.assetId,
           transaction.type,
-        transaction.status,
-        transaction.quantity,
-        transaction.price ?? null,
-        transaction.totalValue ?? null,
-        transaction.fee ?? null,
-        transaction.feeCurrency ?? null,
-        transaction.timestamp.toISOString(),
-        transaction.externalId ?? null,
-        transaction.relatedTransactionId ?? null,
-        transaction.notes ?? null,
-        this.serializeJson(transaction.metadata),
-        now.toISOString(),
-        now.toISOString(),
-      );
+          transaction.status,
+          transaction.quantity,
+          transaction.price ?? null,
+          transaction.totalValue ?? null,
+          transaction.fee ?? null,
+          transaction.feeCurrency ?? null,
+          transaction.timestamp.toISOString(),
+          transaction.externalId ?? null,
+          transaction.relatedTransactionId ?? null,
+          transaction.notes ?? null,
+          this.serializeJson(transaction.metadata),
+          now.toISOString(),
+          now.toISOString(),
+        );
 
         transactions.push(transaction);
       }
@@ -409,7 +438,7 @@ export class TransactionRepository extends BaseRepository {
       JOIN accounts acc ON t.account_id = acc.id
       WHERE 1=1
     `;
-    const params: any[] = [];
+    const params: unknown[] = [];
 
     if (filters?.accountId) {
       query += ' AND t.account_id = ?';
@@ -449,7 +478,7 @@ export class TransactionRepository extends BaseRepository {
     }
 
     const stmt = this.db.prepare(query);
-    const rows = stmt.all(...params) as any[];
+    const rows = stmt.all(...params) as TransactionWithDetailsRow[];
 
     return rows.map((row) => ({
       ...this.mapRowToTransaction(row),
@@ -473,7 +502,7 @@ export class TransactionRepository extends BaseRepository {
     this.ensureDatabase();
 
     let query = 'SELECT COUNT(*) as count FROM transactions WHERE 1=1';
-    const params: any[] = [];
+    const params: unknown[] = [];
     const fromDate = filters?.fromDate ?? filters?.dateFrom;
     const toDate = filters?.toDate ?? filters?.dateTo;
 
@@ -516,7 +545,7 @@ export class TransactionRepository extends BaseRepository {
   /**
    * Map database row to Transaction object
    */
-  private mapRowToTransaction(row: any): Transaction {
+  private mapRowToTransaction(row: TransactionRow): Transaction {
     return {
       id: row.id,
       accountId: row.account_id,
@@ -553,7 +582,9 @@ export class TransactionRepository extends BaseRepository {
     try {
       const parsed = typeof value === 'string' ? JSON.parse(value) : value;
       if (parsed && typeof parsed === 'object') {
-        return Object.keys(parsed as object).length > 0 ? (parsed as Record<string, unknown>) : undefined;
+        return Object.keys(parsed as object).length > 0
+          ? (parsed as Record<string, unknown>)
+          : undefined;
       }
     } catch {
       return undefined;

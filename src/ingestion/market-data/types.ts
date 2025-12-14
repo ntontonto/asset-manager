@@ -84,11 +84,7 @@ export class RateLimitError extends MarketDataError {
 }
 
 export class ExchangeError extends MarketDataError {
-  constructor(
-    provider: MarketDataProvider,
-    message: string,
-    originalError?: Error,
-  ) {
+  constructor(provider: MarketDataProvider, message: string, originalError?: Error) {
     super(`Exchange error: ${message}`, provider, originalError);
     this.name = 'ExchangeError';
   }

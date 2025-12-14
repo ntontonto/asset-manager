@@ -24,12 +24,12 @@ export class RateLimiter {
    */
   public tryAcquire(): boolean {
     this.refillTokens();
-    
+
     if (this.tokens >= 1) {
       this.tokens -= 1;
       return true;
     }
-    
+
     return false;
   }
 
@@ -48,7 +48,7 @@ export class RateLimiter {
           setTimeout(checkToken, waitTime);
         }
       };
-      
+
       checkToken();
     });
   }
@@ -66,11 +66,11 @@ export class RateLimiter {
    */
   public getWaitTime(): number {
     this.refillTokens();
-    
+
     if (this.tokens >= 1) {
       return 0;
     }
-    
+
     return Math.ceil((1 - this.tokens) / this.refillRate);
   }
 
@@ -78,7 +78,7 @@ export class RateLimiter {
     const now = Date.now();
     const timePassed = now - this.lastRefill;
     const tokensToAdd = timePassed * this.refillRate;
-    
+
     this.tokens = Math.min(this.maxTokens, this.tokens + tokensToAdd);
     this.lastRefill = now;
   }

@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+
 import { CryptoMarketDataFetcher } from '../market-data/crypto-market-data-fetcher';
 import { RateLimiter } from '../market-data/rate-limiter';
+
 import type { ProviderConfig, MarketDataRequest } from '../market-data/types';
 
 // Mock CCXT
@@ -173,7 +175,7 @@ describe('CryptoMarketDataFetcher', () => {
       expect(results.size).toBe(2);
       expect(results.has('binance')).toBe(true);
       expect(results.has('coinbase')).toBe(true);
-      
+
       const binanceData = results.get('binance');
       expect(Array.isArray(binanceData)).toBe(true);
     });
@@ -185,7 +187,7 @@ describe('CryptoMarketDataFetcher', () => {
       };
 
       await expect(fetcher.fetchOHLCV('kraken', request)).rejects.toThrow(
-        'Provider kraken not initialized'
+        'Provider kraken not initialized',
       );
     });
 
@@ -273,7 +275,7 @@ describe('RateLimiter', () => {
 
     // First request should succeed
     expect(limiter.tryAcquire()).toBe(true);
-    
+
     // Second immediate request should fail
     expect(limiter.tryAcquire()).toBe(false);
     expect(limiter.getWaitTime()).toBeGreaterThan(0);

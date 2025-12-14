@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it } from '@jest/globals';
-import { AccountRepository } from '../repositories/account-repository';
+
 import { DatabaseConnection } from '../database/connection';
+import { AccountRepository } from '../repositories/account-repository';
+
 import type { CreateAccountRequest } from '@/shared/types';
 
 describe('AccountRepository', () => {
@@ -87,11 +89,29 @@ describe('AccountRepository', () => {
     beforeEach(() => {
       const accounts: CreateAccountRequest[] = [
         { name: 'Binance', provider: 'binance', type: 'exchange', currency: 'USD', isActive: true },
-        { name: 'Coinbase', provider: 'coinbase', type: 'exchange', currency: 'USD', isActive: true },
-        { name: 'Old Account', provider: 'kraken', type: 'exchange', currency: 'USD', isActive: false },
-        { name: 'Manual Portfolio', provider: 'manual', type: 'manual', currency: 'JPY', isActive: true },
+        {
+          name: 'Coinbase',
+          provider: 'coinbase',
+          type: 'exchange',
+          currency: 'USD',
+          isActive: true,
+        },
+        {
+          name: 'Old Account',
+          provider: 'kraken',
+          type: 'exchange',
+          currency: 'USD',
+          isActive: false,
+        },
+        {
+          name: 'Manual Portfolio',
+          provider: 'manual',
+          type: 'manual',
+          currency: 'JPY',
+          isActive: true,
+        },
       ];
-      accounts.forEach(account => repository.create(account));
+      accounts.forEach((account) => repository.create(account));
     });
 
     it('should list all accounts without filters', () => {
@@ -102,7 +122,7 @@ describe('AccountRepository', () => {
     it('should filter by active status', () => {
       const activeAccounts = repository.list({ isActive: true });
       expect(activeAccounts).toHaveLength(3);
-      expect(activeAccounts.every(account => account.isActive)).toBe(true);
+      expect(activeAccounts.every((account) => account.isActive)).toBe(true);
 
       const inactiveAccounts = repository.list({ isActive: false });
       expect(inactiveAccounts).toHaveLength(1);
