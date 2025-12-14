@@ -72,7 +72,7 @@ export class PositionRepository extends BaseRepository {
   /**
    * Get position by ID
    */
-  public getById(id: string): Position | null {
+  public getById(id: string): Position | undefined {
     this.ensureDatabase();
 
     const stmt = this.db.prepare(`
@@ -80,13 +80,13 @@ export class PositionRepository extends BaseRepository {
     `);
 
     const row = stmt.get(id) as any;
-    return row ? this.mapRowToPosition(row) : null;
+    return row ? this.mapRowToPosition(row) : undefined;
   }
 
   /**
    * Get position by account and asset
    */
-  public getByAccountAndAsset(accountId: string, assetId: string): Position | null {
+  public getByAccountAndAsset(accountId: string, assetId: string): Position | undefined {
     this.ensureDatabase();
 
     const stmt = this.db.prepare(`
@@ -94,7 +94,7 @@ export class PositionRepository extends BaseRepository {
     `);
 
     const row = stmt.get(accountId, assetId) as any;
-    return row ? this.mapRowToPosition(row) : null;
+    return row ? this.mapRowToPosition(row) : undefined;
   }
 
   /**
@@ -356,8 +356,8 @@ export class PositionRepository extends BaseRepository {
       accountId: row.account_id,
       assetId: row.asset_id,
       quantity: row.quantity,
-      averagePrice: row.average_price,
-      lastPrice: row.last_price,
+      averagePrice: row.average_price ?? undefined,
+      lastPrice: row.last_price ?? undefined,
       lastUpdated: new Date(row.last_updated),
       metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
       createdAt: new Date(row.created_at),

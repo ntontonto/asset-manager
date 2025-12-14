@@ -24,6 +24,9 @@ export class AccountRepository extends BaseRepository {
   public create(request: CreateAccountRequest): Account {
     this.ensureDatabase();
 
+    const now = new Date();
+    const apiCredentials = this.normalizeApiCredentials(request.apiCredentials);
+
     const account: Account = {
       id: randomUUID(),
       name: request.name,
@@ -31,10 +34,10 @@ export class AccountRepository extends BaseRepository {
       type: request.type,
       currency: request.currency,
       isActive: request.isActive ?? true,
-      apiCredentials: request.apiCredentials,
+      apiCredentials,
       metadata: request.metadata,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      createdAt: now,
+      updatedAt: now,
     };
 
     const stmt = this.db.prepare(`
@@ -51,10 +54,10 @@ export class AccountRepository extends BaseRepository {
       account.type,
       account.currency,
       account.isActive ? 1 : 0,
-      JSON.stringify(account.apiCredentials || {}),
-      JSON.stringify(account.metadata || {}),
-      account.createdAt.toISOString(),
-      account.updatedAt.toISOString(),
+      this.serializeJson(apiCredentials),
+      this.serializeJson(account.metadata),
+      now.toISOString(),
+      now.toISOString(),
     );
 
     return account;
@@ -63,7 +66,7 @@ export class AccountRepository extends BaseRepository {
   /**
    * Get account by ID
    */
-  public getById(id: string): Account | null {
+  public getById(id: string): Account | undefined {
     this.ensureDatabase();
 
     const stmt = this.db.prepare(`
@@ -71,7 +74,7 @@ export class AccountRepository extends BaseRepository {
     `);
 
     const row = stmt.get(id) as any;
-    return row ? this.mapRowToAccount(row) : null;
+    return row ? this.mapRowToAccount(row) : undefined;
   }
 
   /**
@@ -131,19 +134,25 @@ export class AccountRepository extends BaseRepository {
   /**
    * Update an existing account
    */
-  public update(id: string, request: UpdateAccountRequest): Account | null {
+  public update(id: string, request: UpdateAccountRequest): Account | undefined {
     this.ensureDatabase();
 
     const existing = this.getById(id);
     if (!existing) {
-      return null;
+      return undefined;
     }
+
+    const updatedAt = this.nextTimestamp(existing.updatedAt);
+    const apiCredentials = request.apiCredentials
+      ? this.normalizeApiCredentials(request.apiCredentials)
+      : existing.apiCredentials;
 
     const updated: Account = {
       ...existing,
       ...request,
+      apiCredentials,
       id, // Keep original ID
-      updatedAt: new Date(),
+      updatedAt,
     };
 
     const stmt = this.db.prepare(`
@@ -165,8 +174,8 @@ export class AccountRepository extends BaseRepository {
       updated.type,
       updated.currency,
       updated.isActive ? 1 : 0,
-      JSON.stringify(updated.apiCredentials || {}),
-      JSON.stringify(updated.metadata || {}),
+      this.serializeJson(apiCredentials),
+      this.serializeJson(updated.metadata),
       updated.updatedAt.toISOString(),
       id,
     );
@@ -249,10 +258,70 @@ export class AccountRepository extends BaseRepository {
       type: row.type as AccountType,
       currency: row.currency,
       isActive: !!row.is_active,
-      apiCredentials: row.api_credentials ? JSON.parse(row.api_credentials) : undefined,
-      metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
+      apiCredentials: this.deserializeApiCredentials(row.api_credentials),
+      metadata: this.deserializeJson(row.metadata),
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),
     };
+  }
+
+  private normalizeApiCredentials(
+    credentials?: CreateAccountRequest['apiCredentials'],
+  ): Record<string, unknown> | undefined {
+    if (!credentials) {
+      return undefined;
+    }
+
+    if (typeof credentials === 'object' && 'metadata' in credentials && credentials.metadata) {
+      return credentials.metadata as Record<string, unknown>;
+    }
+
+    return credentials as Record<string, unknown>;
+  }
+
+  private serializeJson(value?: Record<string, unknown>): string | null {
+    if (!value) {
+      return null;
+    }
+    return JSON.stringify(value);
+  }
+
+  private deserializeJson(value: unknown): Record<string, unknown> | undefined {
+    if (!value) {
+      return undefined;
+    }
+    if (typeof value === 'string') {
+      try {
+        const parsed = JSON.parse(value);
+        return parsed && Object.keys(parsed).length > 0 ? parsed : undefined;
+      } catch {
+        return undefined;
+      }
+    }
+    if (typeof value === 'object' && value !== null) {
+      return Object.keys(value as object).length > 0 ? (value as Record<string, unknown>) : undefined;
+    }
+    return undefined;
+  }
+
+  private deserializeApiCredentials(value: unknown): Record<string, unknown> | undefined {
+    const parsed = this.deserializeJson(value);
+    if (!parsed) {
+      return undefined;
+    }
+
+    if (typeof parsed === 'object' && 'metadata' in parsed && (parsed as any).metadata) {
+      return (parsed as any).metadata as Record<string, unknown>;
+    }
+
+    return parsed;
+  }
+
+  private nextTimestamp(previous: Date): Date {
+    const now = new Date();
+    if (now.getTime() > previous.getTime()) {
+      return now;
+    }
+    return new Date(previous.getTime() + 1);
   }
 }

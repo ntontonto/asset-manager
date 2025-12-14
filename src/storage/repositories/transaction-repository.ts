@@ -20,6 +20,10 @@ export interface TransactionFilters {
   types?: TransactionType[];
   dateFrom?: Date;
   dateTo?: Date;
+  fromDate?: Date;
+  toDate?: Date;
+  limit?: number;
+  offset?: number;
   externalId?: string;
 }
 
@@ -29,6 +33,8 @@ export class TransactionRepository extends BaseRepository {
    */
   public create(request: CreateTransactionRequest): Transaction {
     this.ensureDatabase();
+
+    const now = new Date();
 
     const transaction: Transaction = {
       id: randomUUID(),
@@ -46,8 +52,8 @@ export class TransactionRepository extends BaseRepository {
       relatedTransactionId: request.relatedTransactionId,
       notes: request.notes,
       metadata: request.metadata,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      createdAt: now,
+      updatedAt: now,
     };
 
     const stmt = this.db.prepare(`
@@ -65,17 +71,17 @@ export class TransactionRepository extends BaseRepository {
       transaction.type,
       transaction.status,
       transaction.quantity,
-      transaction.price || null,
-      transaction.totalValue || null,
-      transaction.fee || null,
-      transaction.feeCurrency || null,
+      transaction.price ?? null,
+      transaction.totalValue ?? null,
+      transaction.fee ?? null,
+      transaction.feeCurrency ?? null,
       transaction.timestamp.toISOString(),
-      transaction.externalId || null,
-      transaction.relatedTransactionId || null,
-      transaction.notes || null,
-      JSON.stringify(transaction.metadata || {}),
-      transaction.createdAt.toISOString(),
-      transaction.updatedAt.toISOString(),
+      transaction.externalId ?? null,
+      transaction.relatedTransactionId ?? null,
+      transaction.notes ?? null,
+      this.serializeJson(transaction.metadata),
+      now.toISOString(),
+      now.toISOString(),
     );
 
     return transaction;
@@ -84,7 +90,7 @@ export class TransactionRepository extends BaseRepository {
   /**
    * Get transaction by ID
    */
-  public getById(id: string): Transaction | null {
+  public getById(id: string): Transaction | undefined {
     this.ensureDatabase();
 
     const stmt = this.db.prepare(`
@@ -92,13 +98,13 @@ export class TransactionRepository extends BaseRepository {
     `);
 
     const row = stmt.get(id) as any;
-    return row ? this.mapRowToTransaction(row) : null;
+    return row ? this.mapRowToTransaction(row) : undefined;
   }
 
   /**
    * Get transaction by external ID
    */
-  public getByExternalId(externalId: string): Transaction | null {
+  public getByExternalId(externalId: string): Transaction | undefined {
     this.ensureDatabase();
 
     const stmt = this.db.prepare(`
@@ -106,17 +112,21 @@ export class TransactionRepository extends BaseRepository {
     `);
 
     const row = stmt.get(externalId) as any;
-    return row ? this.mapRowToTransaction(row) : null;
+    return row ? this.mapRowToTransaction(row) : undefined;
   }
 
   /**
    * List transactions with optional filters
    */
-  public list(filters?: TransactionFilters, limit?: number, offset?: number): Transaction[] {
+  public list(filters: TransactionFilters = {}, limit?: number, offset?: number): Transaction[] {
     this.ensureDatabase();
 
     let query = 'SELECT * FROM transactions WHERE 1=1';
     const params: any[] = [];
+    const fromDate = filters.fromDate ?? filters.dateFrom;
+    const toDate = filters.toDate ?? filters.dateTo;
+    const resolvedLimit = filters.limit ?? limit;
+    const resolvedOffset = filters.offset ?? offset;
 
     if (filters?.accountId) {
       query += ' AND account_id = ?';
@@ -153,14 +163,14 @@ export class TransactionRepository extends BaseRepository {
       params.push(...filters.types);
     }
 
-    if (filters?.dateFrom) {
+    if (fromDate) {
       query += ' AND timestamp >= ?';
-      params.push(filters.dateFrom.toISOString());
+      params.push(fromDate.toISOString());
     }
 
-    if (filters?.dateTo) {
+    if (toDate) {
       query += ' AND timestamp <= ?';
-      params.push(filters.dateTo.toISOString());
+      params.push(toDate.toISOString());
     }
 
     if (filters?.externalId) {
@@ -170,14 +180,14 @@ export class TransactionRepository extends BaseRepository {
 
     query += ' ORDER BY timestamp DESC';
 
-    if (limit) {
+    if (resolvedLimit !== undefined) {
       query += ' LIMIT ?';
-      params.push(limit);
+      params.push(resolvedLimit);
     }
 
-    if (offset) {
+    if (resolvedOffset !== undefined) {
       query += ' OFFSET ?';
-      params.push(offset);
+      params.push(resolvedOffset);
     }
 
     const stmt = this.db.prepare(query);
@@ -190,14 +200,14 @@ export class TransactionRepository extends BaseRepository {
    * Get transaction history for an account
    */
   public getAccountHistory(accountId: string, limit?: number, offset?: number): Transaction[] {
-    return this.list({ accountId }, limit, offset);
+    return this.list({ accountId, limit, offset });
   }
 
   /**
    * Get transaction history for an asset
    */
   public getAssetHistory(assetId: string, limit?: number, offset?: number): Transaction[] {
-    return this.list({ assetId }, limit, offset);
+    return this.list({ assetId, limit, offset });
   }
 
   /**
@@ -208,25 +218,27 @@ export class TransactionRepository extends BaseRepository {
     dateTo: Date,
     filters?: Omit<TransactionFilters, 'dateFrom' | 'dateTo'>,
   ): Transaction[] {
-    return this.list({ ...filters, dateFrom, dateTo });
+    return this.list({ ...filters, fromDate: dateFrom, toDate: dateTo });
   }
 
   /**
    * Update an existing transaction
    */
-  public update(id: string, request: UpdateTransactionRequest): Transaction | null {
+  public update(id: string, request: UpdateTransactionRequest): Transaction | undefined {
     this.ensureDatabase();
 
     const existing = this.getById(id);
     if (!existing) {
-      return null;
+      return undefined;
     }
+
+    const updatedAt = this.nextTimestamp(existing.updatedAt);
 
     const updated: Transaction = {
       ...existing,
       ...request,
       id, // Keep original ID
-      updatedAt: new Date(),
+      updatedAt,
     };
 
     const stmt = this.db.prepare(`
@@ -255,15 +267,15 @@ export class TransactionRepository extends BaseRepository {
       updated.type,
       updated.status,
       updated.quantity,
-      updated.price || null,
-      updated.totalValue || null,
-      updated.fee || null,
-      updated.feeCurrency || null,
+      updated.price ?? null,
+      updated.totalValue ?? null,
+      updated.fee ?? null,
+      updated.feeCurrency ?? null,
       updated.timestamp.toISOString(),
-      updated.externalId || null,
-      updated.relatedTransactionId || null,
-      updated.notes || null,
-      JSON.stringify(updated.metadata || {}),
+      updated.externalId ?? null,
+      updated.relatedTransactionId ?? null,
+      updated.notes ?? null,
+      this.serializeJson(updated.metadata),
       updated.updatedAt.toISOString(),
       id,
     );
@@ -313,45 +325,46 @@ export class TransactionRepository extends BaseRepository {
       const transactions: Transaction[] = [];
 
       for (const request of requests) {
+        const now = new Date();
         const transaction: Transaction = {
           id: randomUUID(),
           accountId: request.accountId,
           assetId: request.assetId,
           type: request.type,
-          status: request.status || 'completed',
+        status: request.status || 'completed',
           quantity: request.quantity,
           price: request.price,
           totalValue: request.totalValue,
-          fee: request.fee,
-          feeCurrency: request.feeCurrency,
-          timestamp: request.timestamp,
-          externalId: request.externalId,
-          relatedTransactionId: request.relatedTransactionId,
-          notes: request.notes,
-          metadata: request.metadata,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
+        fee: request.fee,
+        feeCurrency: request.feeCurrency,
+        timestamp: request.timestamp,
+        externalId: request.externalId,
+        relatedTransactionId: request.relatedTransactionId,
+        notes: request.notes,
+        metadata: request.metadata,
+        createdAt: now,
+        updatedAt: now,
+      };
 
-        stmt.run(
-          transaction.id,
-          transaction.accountId,
+      stmt.run(
+        transaction.id,
+        transaction.accountId,
           transaction.assetId,
           transaction.type,
-          transaction.status,
-          transaction.quantity,
-          transaction.price || null,
-          transaction.totalValue || null,
-          transaction.fee || null,
-          transaction.feeCurrency || null,
-          transaction.timestamp.toISOString(),
-          transaction.externalId || null,
-          transaction.relatedTransactionId || null,
-          transaction.notes || null,
-          JSON.stringify(transaction.metadata || {}),
-          transaction.createdAt.toISOString(),
-          transaction.updatedAt.toISOString(),
-        );
+        transaction.status,
+        transaction.quantity,
+        transaction.price ?? null,
+        transaction.totalValue ?? null,
+        transaction.fee ?? null,
+        transaction.feeCurrency ?? null,
+        transaction.timestamp.toISOString(),
+        transaction.externalId ?? null,
+        transaction.relatedTransactionId ?? null,
+        transaction.notes ?? null,
+        this.serializeJson(transaction.metadata),
+        now.toISOString(),
+        now.toISOString(),
+      );
 
         transactions.push(transaction);
       }
@@ -376,6 +389,11 @@ export class TransactionRepository extends BaseRepository {
     }
   > {
     this.ensureDatabase();
+
+    const fromDate = filters?.fromDate ?? filters?.dateFrom;
+    const toDate = filters?.toDate ?? filters?.dateTo;
+    const resolvedLimit = filters?.limit ?? limit;
+    const resolvedOffset = filters?.offset ?? offset;
 
     let query = `
       SELECT 
@@ -408,26 +426,26 @@ export class TransactionRepository extends BaseRepository {
       params.push(filters.type);
     }
 
-    if (filters?.dateFrom) {
+    if (fromDate) {
       query += ' AND t.timestamp >= ?';
-      params.push(filters.dateFrom.toISOString());
+      params.push(fromDate.toISOString());
     }
 
-    if (filters?.dateTo) {
+    if (toDate) {
       query += ' AND t.timestamp <= ?';
-      params.push(filters.dateTo.toISOString());
+      params.push(toDate.toISOString());
     }
 
     query += ' ORDER BY t.timestamp DESC';
 
-    if (limit) {
+    if (resolvedLimit !== undefined) {
       query += ' LIMIT ?';
-      params.push(limit);
+      params.push(resolvedLimit);
     }
 
-    if (offset) {
+    if (resolvedOffset !== undefined) {
       query += ' OFFSET ?';
-      params.push(offset);
+      params.push(resolvedOffset);
     }
 
     const stmt = this.db.prepare(query);
@@ -456,6 +474,8 @@ export class TransactionRepository extends BaseRepository {
 
     let query = 'SELECT COUNT(*) as count FROM transactions WHERE 1=1';
     const params: any[] = [];
+    const fromDate = filters?.fromDate ?? filters?.dateFrom;
+    const toDate = filters?.toDate ?? filters?.dateTo;
 
     if (filters?.accountId) {
       query += ' AND account_id = ?';
@@ -477,14 +497,14 @@ export class TransactionRepository extends BaseRepository {
       params.push(filters.status);
     }
 
-    if (filters?.dateFrom) {
+    if (fromDate) {
       query += ' AND timestamp >= ?';
-      params.push(filters.dateFrom.toISOString());
+      params.push(fromDate.toISOString());
     }
 
-    if (filters?.dateTo) {
+    if (toDate) {
       query += ' AND timestamp <= ?';
-      params.push(filters.dateTo.toISOString());
+      params.push(toDate.toISOString());
     }
 
     const stmt = this.db.prepare(query);
@@ -504,17 +524,49 @@ export class TransactionRepository extends BaseRepository {
       type: row.type as TransactionType,
       status: row.status as TransactionStatus,
       quantity: row.quantity,
-      price: row.price,
-      totalValue: row.total_value,
-      fee: row.fee,
-      feeCurrency: row.fee_currency,
+      price: row.price ?? undefined,
+      totalValue: row.total_value ?? undefined,
+      fee: row.fee ?? undefined,
+      feeCurrency: row.fee_currency ?? undefined,
       timestamp: new Date(row.timestamp),
-      externalId: row.external_id,
-      relatedTransactionId: row.related_transaction_id,
-      notes: row.notes,
-      metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
+      externalId: row.external_id ?? undefined,
+      relatedTransactionId: row.related_transaction_id ?? undefined,
+      notes: row.notes ?? undefined,
+      metadata: this.deserializeJson(row.metadata),
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),
     };
+  }
+
+  private serializeJson(value?: Record<string, unknown>): string | null {
+    if (!value) {
+      return null;
+    }
+    return JSON.stringify(value);
+  }
+
+  private deserializeJson(value: unknown): Record<string, unknown> | undefined {
+    if (!value) {
+      return undefined;
+    }
+
+    try {
+      const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+      if (parsed && typeof parsed === 'object') {
+        return Object.keys(parsed as object).length > 0 ? (parsed as Record<string, unknown>) : undefined;
+      }
+    } catch {
+      return undefined;
+    }
+
+    return undefined;
+  }
+
+  private nextTimestamp(previous: Date): Date {
+    const now = new Date();
+    if (now.getTime() > previous.getTime()) {
+      return now;
+    }
+    return new Date(previous.getTime() + 1);
   }
 }

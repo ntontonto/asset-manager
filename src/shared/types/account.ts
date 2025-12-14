@@ -29,13 +29,7 @@ export const AccountSchema = z.object({
   type: AccountTypeSchema,
   currency: z.string().length(3), // Base currency for the account
   isActive: z.boolean().default(true),
-  apiCredentials: z
-    .object({
-      encrypted: z.boolean(),
-      keyId: z.string().optional(),
-      metadata: z.record(z.unknown()).optional(),
-    })
-    .optional(),
+  apiCredentials: z.record(z.unknown()).optional(),
   metadata: z.record(z.unknown()).optional(),
   createdAt: z.date(),
   updatedAt: z.date(),
