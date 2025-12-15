@@ -10,18 +10,18 @@
     "moduleDetection": "force",
     "noEmit": true,
     "composite": false,
-    
+
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedIndexedAccess": true,
-    
+
     "skipLibCheck": true,
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
-    
+
     "baseUrl": "./",
     "paths": {
       "@/*": ["./src/*"],
