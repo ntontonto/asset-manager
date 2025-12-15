@@ -1,18 +1,19 @@
 import { randomUUID } from 'node:crypto';
+
 import { Decimal } from 'decimal.js';
 
-import type { CoreDataStore } from '@/storage';
 import type { PortfolioSnapshot } from '@/shared/types';
+import type { CoreDataStore } from '@/storage';
 
 export class PortfolioSnapshotBuilder {
   constructor(private readonly dataStore: CoreDataStore) {}
 
   public async buildSnapshot(asOfDate?: Date): Promise<PortfolioSnapshot> {
     const timestamp = asOfDate || new Date();
-    
+
     // Get all positions from all accounts
     const positions = this.dataStore.positions.list();
-    
+
     if (positions.length === 0) {
       return this.createEmptySnapshot(timestamp);
     }
@@ -22,8 +23,8 @@ export class PortfolioSnapshotBuilder {
     const accounts = this.dataStore.accounts.list();
 
     // Create maps for quick lookup
-    const assetMap = new Map(assets.map(asset => [asset.id, asset]));
-    const accountMap = new Map(accounts.map(account => [account.id, account]));
+    const assetMap = new Map(assets.map((asset) => [asset.id, asset]));
+    const accountMap = new Map(accounts.map((account) => [account.id, account]));
 
     // Group positions by asset
     const positionsByAsset = this.groupPositionsByAsset(positions);
@@ -43,14 +44,14 @@ export class PortfolioSnapshotBuilder {
       // Calculate total quantity and market value
       const totalQuantity = assetPositions.reduce(
         (sum, pos) => sum.plus(pos.quantity),
-        new Decimal(0)
+        new Decimal(0),
       );
 
       const assetMarketValue = totalQuantity.mul(priceDecimal);
       totalMarketValue = totalMarketValue.plus(assetMarketValue);
 
       // Create account breakdown
-      const accountBreakdown = assetPositions.map(position => {
+      const accountBreakdown = assetPositions.map((position) => {
         const account = accountMap.get(position.accountId);
         const positionValue = new Decimal(position.quantity).mul(priceDecimal);
 
@@ -81,7 +82,7 @@ export class PortfolioSnapshotBuilder {
       const weight = totalMarketValue.isZero()
         ? new Decimal(0)
         : new Decimal(assetItem.marketValue).div(totalMarketValue).mul(100);
-      
+
       assetItem.weight = weight.toFixed(2);
     }
 
@@ -97,13 +98,17 @@ export class PortfolioSnapshotBuilder {
     const allocationByAccount: Record<string, string> = {};
     for (const assetItem of snapshotAssets) {
       for (const accountBreakdown of assetItem.accounts) {
-        const currentAccountAllocation = new Decimal(allocationByAccount[accountBreakdown.accountId] || 0);
+        const currentAccountAllocation = new Decimal(
+          allocationByAccount[accountBreakdown.accountId] || 0,
+        );
         const accountValue = new Decimal(accountBreakdown.marketValue);
         const accountWeight = totalMarketValue.isZero()
           ? new Decimal(0)
           : accountValue.div(totalMarketValue).mul(100);
-        
-        allocationByAccount[accountBreakdown.accountId] = currentAccountAllocation.plus(accountWeight).toFixed(2);
+
+        allocationByAccount[accountBreakdown.accountId] = currentAccountAllocation
+          .plus(accountWeight)
+          .toFixed(2);
       }
     }
 
@@ -154,12 +159,12 @@ export class PortfolioSnapshotBuilder {
     // Remove trailing zeros and format nicely
     const fixed = decimal.toFixed();
     const number = parseFloat(fixed);
-    
+
     // If the number is a whole number, return it as is
     if (number % 1 === 0) {
       return number.toString();
     }
-    
+
     // Otherwise, remove trailing zeros but respect maxDecimals
     return parseFloat(decimal.toFixed(maxDecimals)).toString();
   }

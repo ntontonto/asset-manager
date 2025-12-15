@@ -1,10 +1,11 @@
 import { CoreDataStore } from '@/storage';
+
 import { PortfolioSnapshotBuilder } from '../portfolio-snapshot-builder';
+
 import type {
   Asset,
   Account,
   Position,
-  PortfolioSnapshot,
   CreateAssetRequest,
   CreateAccountRequest,
   CreatePosition,
@@ -132,9 +133,9 @@ describe('PortfolioSnapshotBuilder', () => {
       expect(assetItem.quantity).toBe('15'); // 10 + 5
       expect(assetItem.marketValue).toBe('45000.00'); // 15 * 3000
       expect(assetItem.accounts).toHaveLength(2);
-      
+
       // Check account breakdown
-      const accountBreakdown = assetItem.accounts.find(acc => acc.accountId === account1.id);
+      const accountBreakdown = assetItem.accounts.find((acc) => acc.accountId === account1.id);
       expect(accountBreakdown?.quantity).toBe('10');
       expect(accountBreakdown?.marketValue).toBe('30000.00');
     });
@@ -178,14 +179,16 @@ describe('PortfolioSnapshotBuilder', () => {
       });
 
       // Mock prices
-      jest.spyOn(builder as any, 'getCurrentPrice')
-        .mockImplementation(async (symbol: string) => {
-          switch (symbol) {
-            case 'BTC': return '60000.00';
-            case 'AAPL': return '150.00';
-            default: throw new Error(`Unknown symbol: ${symbol}`);
-          }
-        });
+      jest.spyOn(builder as any, 'getCurrentPrice').mockImplementation(async (symbol: string) => {
+        switch (symbol) {
+          case 'BTC':
+            return '60000.00';
+          case 'AAPL':
+            return '150.00';
+          default:
+            throw new Error(`Unknown symbol: ${symbol}`);
+        }
+      });
 
       const snapshot = await builder.buildSnapshot();
 
@@ -214,15 +217,24 @@ describe('PortfolioSnapshotBuilder', () => {
 });
 
 // Helper functions for test data creation
-async function createTestAsset(dataStore: CoreDataStore, request: CreateAssetRequest): Promise<Asset> {
+async function createTestAsset(
+  dataStore: CoreDataStore,
+  request: CreateAssetRequest,
+): Promise<Asset> {
   return dataStore.assets.create(request);
 }
 
-async function createTestAccount(dataStore: CoreDataStore, request: CreateAccountRequest): Promise<Account> {
+async function createTestAccount(
+  dataStore: CoreDataStore,
+  request: CreateAccountRequest,
+): Promise<Account> {
   return dataStore.accounts.create(request);
 }
 
-async function createTestPosition(dataStore: CoreDataStore, request: CreatePosition): Promise<Position> {
+async function createTestPosition(
+  dataStore: CoreDataStore,
+  request: CreatePosition,
+): Promise<Position> {
   return dataStore.positions.upsert(request.accountId, request.assetId, {
     quantity: request.quantity,
     averagePrice: request.averagePrice,
